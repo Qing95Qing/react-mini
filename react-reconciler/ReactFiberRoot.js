@@ -25,6 +25,7 @@ export function createFiberRoot(containerInfo, tag, hydrate, initialChildren) {
   return root;
 }
 
+// * prettier-ignore */
 function FiberRootNode(this, containerInfo, tag, hydrate) {
   this.tag = tag;
   this.containerInfo = containerInfo;

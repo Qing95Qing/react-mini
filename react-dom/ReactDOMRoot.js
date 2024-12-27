@@ -1,5 +1,7 @@
-import { createContainer } from "../react-reconciler/ReactFiberReconciler";
-
+import {
+    createContainer,
+    updateContainer,
+} from '../react-reconciler/ReactFiberReconciler';
 
 export function createRoot(container) {
     const root = createContainer(container, ConcurrentRoot);
@@ -9,21 +11,21 @@ export function createRoot(container) {
 }
 
 function ReactDOMRoot(internalRoot) {
-  this._internalRoot = internalRoot;
+    this._internalRoot = internalRoot;
 }
 
-ReactDOMRoot.prototype.render = function(children) {
+ReactDOMRoot.prototype.render = function (children) {
     const root = this._internalRoot;
-    updateContainer(children, root);
+    updateContainer(children, root, null, null);
 };
 
-ReactDOMRoot.prototype.unmount = function() {
+ReactDOMRoot.prototype.unmount = function () {
     const root = this._internalRoot;
     if (root !== null) {
-      this._internalRoot = null;
-      const container = root.containerInfo;
-      updateContainerSync(null, root, null, null);
-      flushSyncWork();
-      unmarkContainerAsRoot(container);
+        this._internalRoot = null;
+        const container = root.containerInfo;
+        updateContainerSync(null, root, null, null);
+        flushSyncWork();
+        unmarkContainerAsRoot(container);
     }
 };
