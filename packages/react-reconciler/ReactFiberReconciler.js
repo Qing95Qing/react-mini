@@ -1,4 +1,5 @@
 import { createFiberRoot } from './ReactFiberRoot';
+import { requestUpdateLane } from './ReactFiberWorkLoop';
 
 // 创建fiber根容器
 // tag可取两种值：1【ConcurrentRoot】 or 0【LegacyRoot】

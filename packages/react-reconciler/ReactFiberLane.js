@@ -39,6 +39,8 @@ const RetryLane2 = /*                             */ 0b0000000100000000000000000
 const RetryLane3 = /*                             */ 0b0000001000000000000000000000000;
 const RetryLane4 = /*                             */ 0b0000010000000000000000000000000;
 
+let nextTransitionLane = TransitionLane1;
+
 export function getHighestPriorityLane(lanes) {
     return lanes & -lanes;
 }
@@ -46,4 +48,16 @@ export function getHighestPriorityLane(lanes) {
 export function pickArbitraryLane(lanes) {
     // 可以获取任意优先级，这里取最高优先级是因为操作最少
     return getHighestPriorityLane(lanes);
+}
+
+export function claimNextTransitionLane() {
+    // 循环所有的lanes，给下一个lane分配一个新的transition
+    // 大多数场景中，这样意味着每个transition能获取到对应的lane，知道所有lane被用完循环回到了初始
+
+    const lane = nextTransitionLane;
+    nextTransitionLane <<= 1;
+    if ((nextTransitionLane & TransitionLanes) === NoLanes) {
+        nextTransitionLane = TransitionLane1;
+    }
+    return lane;
 }
