@@ -3,6 +3,8 @@ import { ConcurrentMode, NoMode } from './ReactTypeOfMode';
 import { requestCurrentTransition } from './ReactFiberTransition';
 import { peekEntangledActionLane } from './ReactFiberAsyncAction';
 import { requestTransitionLane } from './ReactFiberRootScheduler';
+import { resolveUpdatePriority } from '../react-dom-bindings/ReactDOMUpdatePriority';
+import { eventPriorityToLane } from './ReactEventPriorities';
 
 export function requestUpdateLane(fiber) {
     // 获取当前fiber节点的lanes

@@ -3,6 +3,7 @@ import {
     NoEventPriority,
 } from '../react-reconciler/ReactEventPriorities';
 import ReactDOMSharedInternals from '../shared/ReactDOMSharedInternals';
+import { getEventPriority } from './ReactDOMEventListener';
 
 export function resolveUpdatePriority() {
     const updatePriority =
