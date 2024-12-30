@@ -36,3 +36,10 @@ export function requestUpdateLane(fiber) {
     // 4）事件优先级：根据事件优先级返回相应的 Lane
     return eventPriorityToLane(resolveUpdatePriority());
 }
+
+export function isUnsafeClassRenderPhaseUpdate(fiber) {
+    // 检查是否是一个渲染阶段的update，只会被类组件调用
+    // 为了UNSAFE_componentWillReceive而设置的特殊行为
+    // which special (deprecated) behavior for UNSAFE_componentWillReceive props.
+    return (executionContext & RenderContext) !== NoContext;
+}
