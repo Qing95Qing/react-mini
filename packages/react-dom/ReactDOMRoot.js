@@ -1,10 +1,12 @@
 import { markContainerAsRoot } from '../react-dom-bindings/ReactDOMComponentTree';
+import { listenToAllSupportedEvents } from '../react-dom-bindings/events/DOMPluginEventSystem';
 import {
     createContainer,
     updateContainer,
 } from '../react-reconciler/ReactFiberReconciler';
 
 export function createRoot(container) {
+    // 创建一个FiberRootNode
     const root = createContainer(container, ConcurrentRoot);
     // 将root.current 记录到 给container的【__reactContainer$】
     markContainerAsRoot(root.current, container);

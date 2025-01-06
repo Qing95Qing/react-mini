@@ -43,3 +43,29 @@ export function isUnsafeClassRenderPhaseUpdate(fiber) {
     // which special (deprecated) behavior for UNSAFE_componentWillReceive props.
     return (executionContext & RenderContext) !== NoContext;
 }
+
+export function batchedUpdates(fn, a) {
+    if (disableLegacyMode) {
+        // batchedUpdates is a no-op now, but there's still some internal react-dom
+        // code calling it, that we can't remove until we remove legacy mode.
+        return fn(a);
+    } else {
+        const prevExecutionContext = executionContext;
+        executionContext |= BatchedContext;
+        try {
+            return fn(a);
+        } finally {
+            executionContext = prevExecutionContext;
+            // If there were legacy sync updates, flush them at the end of the outer
+            // most batchedUpdates-like method.
+            if (
+                executionContext === NoContext &&
+                // Treat `act` as if it's inside `batchedUpdates`, even in legacy mode.
+                !(__DEV__ && ReactSharedInternals.isBatchingLegacy)
+            ) {
+                resetRenderTimer();
+                flushSyncWorkOnLegacyRootsOnly();
+            }
+        }
+    }
+}

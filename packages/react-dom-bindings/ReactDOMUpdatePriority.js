@@ -17,3 +17,11 @@ export function resolveUpdatePriority() {
     }
     return getEventPriority(currentEvent.type);
 }
+
+export function getCurrentUpdatePriority() {
+    return ReactDOMSharedInternals.p; /* currentUpdatePriority */
+}
+
+export function setCurrentUpdatePriority(newPriority) {
+    ReactDOMSharedInternals.p /* currentUpdatePriority */ = newPriority;
+}
