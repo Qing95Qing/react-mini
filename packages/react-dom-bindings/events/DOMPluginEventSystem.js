@@ -7,6 +7,7 @@ import * as SelectEventPlugin from './plugins/SelectEventPlugin';
 import * as BeforeInputEventPlugin from './plugins/BeforeInputEventPlugin';
 import { createEventListenerWrapperWithPriority } from './ReactDOMEventListener';
 import { getClosestInstanceFromNode } from '../ReactDOMComponentTree';
+import getEventTarget from './getEventTarget';
 
 // 将所有的事件的名称加到allNativeEvents的集合中，两阶段事件的会多加一个capture事件 
 // 如onClick会多再注册一个onClickCapture
@@ -125,6 +126,7 @@ function addTrappedEventListener(
       eventSystemFlags,
   );
 
+  // 调用原生dom上的addEventHandler
   if (isCapturePhaseListener) {
     unsubscribeListener = addEventCaptureListener(
       targetContainer,
@@ -224,4 +226,35 @@ function isMatchingRootContainer(grandContainer, targetContainer) {
     (grandContainer.nodeType === COMMENT_NODE &&
       grandContainer.parentNode === targetContainer)
   );
+}
+
+export function addEventBubbleListener(target, eventType, listener) {
+  target.addEventListener(eventType, listener, false);
+  return listener;
+}
+
+export function addEventCaptureListener(target, eventType, listener){
+  target.addEventListener(eventType, listener, true);
+  return listener;
+}
+
+function dispatchEventsForPlugins(
+  domEventName,
+  eventSystemFlags,
+  nativeEvent,
+  targetInst,
+  targetContainer,
+) {
+  const nativeEventTarget = getEventTarget(nativeEvent);
+  const dispatchQueue = [];
+  extractEvents(
+    dispatchQueue,
+    domEventName,
+    targetInst,
+    nativeEvent,
+    nativeEventTarget,
+    eventSystemFlags,
+    targetContainer,
+  );
+  processDispatchQueue(dispatchQueue, eventSystemFlags);
 }

@@ -28,6 +28,7 @@ import {
     UserBlockingPriority as UserBlockingSchedulerPriority,
 } from '../../scheduler/SchedulerPriorities';
 import { getCurrentPriorityLevel as getCurrentSchedulerPriorityLevel } from '../../scheduler';
+import { dispatchEventForPluginEventSystem } from './DOMPluginEventSystem';
 
 export function createEventListenerWrapperWithPriority(
     targetContainer,
