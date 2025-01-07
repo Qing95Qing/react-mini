@@ -10,8 +10,11 @@ export function createRoot(container) {
     const root = createContainer(container, ConcurrentRoot);
     // 将root.current 记录到 给container的【__reactContainer$】
     markContainerAsRoot(root.current, container);
-    // 对root注册所有支持的事件设置listener。
-    listenToAllSupportedEvents(root);
+    const rootContainerElement = container.nodeType === COMMENT_NODE
+        ? container.parentNode
+        : container;
+        // 对root注册所有支持的事件设置listener。
+    listenToAllSupportedEvents(rootContainerElement);
     return new ReactDOMRoot(root);
 }
 

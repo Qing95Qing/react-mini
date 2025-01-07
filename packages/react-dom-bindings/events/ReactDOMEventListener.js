@@ -216,7 +216,7 @@ export function dispatchEvent(
             domEventName,
             eventSystemFlags,
             nativeEvent,
-            return_targetInst,
+            return_targetInst, // 只有被阻塞的事件才有
             targetContainer
         );
         clearIfContinuousEvent(domEventName, nativeEvent);

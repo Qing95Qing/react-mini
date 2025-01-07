@@ -1,5 +1,6 @@
 import { createHostRootFiber } from "./ReactFiber";
 import { initializeUpdateQueue } from "./ReactFiberClassUpdateQueue";
+import { createLaneMap } from "./ReactFiberLane";
 
 export function createFiberRoot(containerInfo, tag, hydrate, initialChildren) {
   const root = new FiberRootNode(

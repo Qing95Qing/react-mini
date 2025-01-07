@@ -146,7 +146,7 @@ export function dispatchEventForPluginEventSystem(
   domEventName,
   eventSystemFlags,
   nativeEvent,
-  targetInst, //事件的target
+  targetInst, // 只有被阻塞的事件才有
   targetContainer,
 ) {
   let ancestorInst = targetInst;

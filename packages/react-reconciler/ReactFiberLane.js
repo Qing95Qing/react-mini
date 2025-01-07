@@ -61,3 +61,11 @@ export function claimNextTransitionLane() {
     }
     return lane;
 }
+
+export function createLaneMap(initial) {
+  const laneMap = [];
+  for (let i = 0; i < TotalLanes; i++) {
+    laneMap.push(initial);
+  }
+  return laneMap;
+}

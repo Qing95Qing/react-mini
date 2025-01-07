@@ -5,6 +5,15 @@ import { peekEntangledActionLane } from './ReactFiberAsyncAction';
 import { requestTransitionLane } from './ReactFiberRootScheduler';
 import { resolveUpdatePriority } from '../react-dom-bindings/ReactDOMUpdatePriority';
 import { eventPriorityToLane } from './ReactEventPriorities';
+import { disableLegacyMode } from '../shared/ReactFeatureFlags'
+
+
+export const NoContext = /*             */ 0b000;
+const BatchedContext = /*               */ 0b001;
+export const RenderContext = /*         */ 0b010;
+export const CommitContext = /*         */ 0b100;
+
+let executionContext = NoContext;
 
 export function requestUpdateLane(fiber) {
     // 获取当前fiber节点的lanes
@@ -29,9 +38,9 @@ export function requestUpdateLane(fiber) {
         const actionScopeLane = peekEntangledActionLane();
         return actionScopeLane !== NoLane
             ? // 如果在异步 Action Scope 中，则重用相同的 Lane
-              actionScopeLane
+            actionScopeLane
             : // 否则，获取一个新的 Transition Lane
-              requestTransitionLane(transition);
+            requestTransitionLane(transition);
     }
     // 4）事件优先级：根据事件优先级返回相应的 Lane
     return eventPriorityToLane(resolveUpdatePriority());
@@ -45,27 +54,19 @@ export function isUnsafeClassRenderPhaseUpdate(fiber) {
 }
 
 export function batchedUpdates(fn, a) {
+    // 批处理更新现在没有多余的操作，只是调用 fn(a)，为了兼容内部react-dom的调用
     if (disableLegacyMode) {
-        // batchedUpdates is a no-op now, but there's still some internal react-dom
-        // code calling it, that we can't remove until we remove legacy mode.
         return fn(a);
     } else {
-        const prevExecutionContext = executionContext;
-        executionContext |= BatchedContext;
-        try {
-            return fn(a);
-        } finally {
-            executionContext = prevExecutionContext;
-            // If there were legacy sync updates, flush them at the end of the outer
-            // most batchedUpdates-like method.
-            if (
-                executionContext === NoContext &&
-                // Treat `act` as if it's inside `batchedUpdates`, even in legacy mode.
-                !(__DEV__ && ReactSharedInternals.isBatchingLegacy)
-            ) {
-                resetRenderTimer();
-                flushSyncWorkOnLegacyRootsOnly();
-            }
-        }
+        // 后面省略，不走这里
     }
+}
+
+export function flushSyncWork() {
+    // 不在render和commit阶段
+    if ((executionContext & (RenderContext | CommitContext)) === NoContext) {
+        flushSyncWorkOnAllRoots();
+        return false;
+    }
+    return true;
 }

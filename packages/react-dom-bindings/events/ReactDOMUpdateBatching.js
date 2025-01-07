@@ -14,3 +14,14 @@ export function batchedUpdates(fn, a, b) {
         finishEventHandler();
     }
 }
+
+function finishEventHandler() {
+
+  const controlledComponentsHavePendingUpdates = needsStateRestore();
+  if (controlledComponentsHavePendingUpdates) {
+    //  如果触发了受控事件，我们可能需要恢复DOM节点返回受控值。
+    // 当React在不接触DOM的情况下退出更新时，这是必要的。
+    flushSyncWork();
+    restoreStateIfNeeded();
+  }
+}
