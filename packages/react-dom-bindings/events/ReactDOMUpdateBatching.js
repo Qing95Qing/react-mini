@@ -1,3 +1,7 @@
+import {
+    batchedUpdates as batchedUpdatesImpl,
+    flushSyncWork,
+} from '../../react-reconciler/ReactFiberWorkLoop';
 let isInsideEventHandler = false;
 
 export function batchedUpdates(fn, a, b) {
@@ -16,12 +20,12 @@ export function batchedUpdates(fn, a, b) {
 }
 
 function finishEventHandler() {
+    const controlledComponentsHavePendingUpdates = needsStateRestore();
+    if (controlledComponentsHavePendingUpdates) {
+        //  如果触发了受控事件，我们可能需要恢复DOM节点返回受控值。
+        // 当React在不接触DOM的情况下退出更新时，这是必要的。
+        flushSyncWork();
 
-  const controlledComponentsHavePendingUpdates = needsStateRestore();
-  if (controlledComponentsHavePendingUpdates) {
-    //  如果触发了受控事件，我们可能需要恢复DOM节点返回受控值。
-    // 当React在不接触DOM的情况下退出更新时，这是必要的。
-    flushSyncWork();
-    restoreStateIfNeeded();
-  }
+        restoreStateIfNeeded();
+    }
 }

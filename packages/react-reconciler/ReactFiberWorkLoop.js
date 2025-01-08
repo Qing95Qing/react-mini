@@ -5,8 +5,7 @@ import { peekEntangledActionLane } from './ReactFiberAsyncAction';
 import { requestTransitionLane } from './ReactFiberRootScheduler';
 import { resolveUpdatePriority } from '../react-dom-bindings/ReactDOMUpdatePriority';
 import { eventPriorityToLane } from './ReactEventPriorities';
-import { disableLegacyMode } from '../shared/ReactFeatureFlags'
-
+import { disableLegacyMode } from '../shared/ReactFeatureFlags';
 
 export const NoContext = /*             */ 0b000;
 const BatchedContext = /*               */ 0b001;
@@ -38,9 +37,9 @@ export function requestUpdateLane(fiber) {
         const actionScopeLane = peekEntangledActionLane();
         return actionScopeLane !== NoLane
             ? // 如果在异步 Action Scope 中，则重用相同的 Lane
-            actionScopeLane
+              actionScopeLane
             : // 否则，获取一个新的 Transition Lane
-            requestTransitionLane(transition);
+              requestTransitionLane(transition);
     }
     // 4）事件优先级：根据事件优先级返回相应的 Lane
     return eventPriorityToLane(resolveUpdatePriority());
