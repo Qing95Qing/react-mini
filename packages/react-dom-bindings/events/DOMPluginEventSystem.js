@@ -8,6 +8,8 @@ import * as BeforeInputEventPlugin from './plugins/BeforeInputEventPlugin';
 import { createEventListenerWrapperWithPriority } from './ReactDOMEventListener';
 import { getClosestInstanceFromNode } from '../ReactDOMComponentTree';
 import getEventTarget from './getEventTarget';
+import { batchedUpdates } from './ReactDOMUpdateBatching';
+import { SHOULD_NOT_PROCESS_POLYFILL_EVENT_PLUGINS } from './EventSystemFlags';
 
 // 将所有的事件的名称加到allNativeEvents的集合中，两阶段事件的会多加一个capture事件 
 // 如onClick会多再注册一个onClickCapture
@@ -16,6 +18,77 @@ EnterLeaveEventPlugin.registerEvents();
 ChangeEventPlugin.registerEvents();
 SelectEventPlugin.registerEvents();
 BeforeInputEventPlugin.registerEvents();
+
+function extractEvents(
+  dispatchQueue,
+  domEventName,
+  targetInst,
+  nativeEvent,
+  nativeEventTarget,
+  eventSystemFlags,
+  targetContainer,
+) {
+  SimpleEventPlugin.extractEvents(
+      dispatchQueue,
+      domEventName,
+      targetInst,
+      nativeEvent,
+      nativeEventTarget,
+      eventSystemFlags,
+      targetContainer,
+    );
+
+    const shouldProcessPolyfillPlugins =
+        (eventSystemFlags & SHOULD_NOT_PROCESS_POLYFILL_EVENT_PLUGINS) === 0;
+
+    if (shouldProcessPolyfillPlugins) {
+      EnterLeaveEventPlugin.extractEvents(
+        dispatchQueue,
+        domEventName,
+        targetInst,
+        nativeEvent,
+        nativeEventTarget,
+        eventSystemFlags,
+        targetContainer,
+      );
+      ChangeEventPlugin.extractEvents(
+        dispatchQueue,
+        domEventName,
+        targetInst,
+        nativeEvent,
+        nativeEventTarget,
+        eventSystemFlags,
+        targetContainer,
+      );
+      SelectEventPlugin.extractEvents(
+        dispatchQueue,
+        domEventName,
+        targetInst,
+        nativeEvent,
+        nativeEventTarget,
+        eventSystemFlags,
+        targetContainer,
+      );
+      // BeforeInputEventPlugin.extractEvents(
+      //   dispatchQueue,
+      //   domEventName,
+      //   targetInst,
+      //   nativeEvent,
+      //   nativeEventTarget,
+      //   eventSystemFlags,
+      //   targetContainer,
+      // );
+      // FormActionEventPlugin.extractEvents(
+      //   dispatchQueue,
+      //   domEventName,
+      //   targetInst,
+      //   nativeEvent,
+      //   nativeEventTarget,
+      //   eventSystemFlags,
+      //   targetContainer,
+      // );
+    }
+}
 
 const listeningMarker = '_reactListening' + Math.random().toString(36).slice(2);
 export const IS_CAPTURE_PHASE = 1 << 2;
@@ -157,6 +230,7 @@ export function dispatchEventForPluginEventSystem(
     const targetContainerNode = targetContainer;
     // 当targetInst不为null时，去找事件派发的正确的祖先实例
     // 从当前时间的target节点向上遍历fiber树找到匹配targetContainer（初始注册事件监听器时bind的container）的root边界
+    // 可以先省略不看
     if (targetInst !== null) {
       let node = targetInst;
 

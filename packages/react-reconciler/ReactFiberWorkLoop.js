@@ -2,7 +2,7 @@ import { pickArbitraryLane, SyncLane } from './ReactFiberLane';
 import { ConcurrentMode, NoMode } from './ReactTypeOfMode';
 import { requestCurrentTransition } from './ReactFiberTransition';
 import { peekEntangledActionLane } from './ReactFiberAsyncAction';
-import { requestTransitionLane } from './ReactFiberRootScheduler';
+import { flushSyncWorkOnAllRoots, requestTransitionLane } from './ReactFiberRootScheduler';
 import { resolveUpdatePriority } from '../react-dom-bindings/ReactDOMUpdatePriority';
 import { eventPriorityToLane } from './ReactEventPriorities';
 import { disableLegacyMode } from '../shared/ReactFeatureFlags';

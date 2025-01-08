@@ -1,5 +1,8 @@
 import { getParentSuspenseInstance } from './ReactFiberConfigDOM';
 
+const randomKey = Math.random().toString(36).slice(2);
+const internalPropsKey = '__reactProps$' + randomKey;
+
 const internalContainerInstanceKey = '__reactContainer$' + randomKey;
 const internalInstanceKey = '__reactFiber$' + randomKey;
 
@@ -43,4 +46,31 @@ export function getClosestInstanceFromNode(targetNode) {
         parentNode = targetNode.parentNode;
     }
     return null;
+}
+
+export function getInstanceFromNode(node) {
+  const inst =
+    node[internalInstanceKey] ||
+    node[internalContainerInstanceKey];
+  if (inst) {
+    const tag = inst.tag;
+    if (
+      tag === HostComponent ||
+      tag === HostText ||
+      tag === SuspenseComponent ||
+      tag === HostHoistable ||
+      tag === HostSingleton ||
+      tag === HostRoot
+    ) {
+      return inst;
+    } else {
+      return null;
+    }
+  }
+  return null;
+}
+
+
+export function getFiberCurrentPropsFromNode(node) {
+  return node[internalPropsKey] || null;
 }

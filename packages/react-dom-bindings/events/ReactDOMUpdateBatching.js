@@ -2,6 +2,7 @@ import {
     batchedUpdates as batchedUpdatesImpl,
     flushSyncWork,
 } from '../../react-reconciler/ReactFiberWorkLoop';
+import { needsStateRestore, restoreStateIfNeeded } from './ReactDOMControlledComponent';
 let isInsideEventHandler = false;
 
 export function batchedUpdates(fn, a, b) {
@@ -12,6 +13,7 @@ export function batchedUpdates(fn, a, b) {
     }
     isInsideEventHandler = true;
     try {
+        // concurrent模式下其实是直接调用fn
         return batchedUpdatesImpl(fn, a, b);
     } finally {
         isInsideEventHandler = false;
