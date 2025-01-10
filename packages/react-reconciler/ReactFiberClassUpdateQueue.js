@@ -23,7 +23,6 @@ export function initializeUpdateQueue(fiber) {
 export function createUpdate(lane) {
     const update = {
         lane,
-
         tag: UpdateState,
         payload: null,
         callback: null,
@@ -44,11 +43,9 @@ export function enqueueUpdate(fiber, update, lane) {
 
     // 类组件中为了componentWillReceive而做的检查，检查该更新是否是一个渲染阶段的更新
     if (isUnsafeClassRenderPhaseUpdate(fiber)) {
-        // This is an unsafe render phase update. Add directly to the update
-        // queue so we can process it immediately during the current render.
+        // 这是一个render阶段的更新，直接将更新加到更新队列中，以便在本次渲染任务中立即处理
         const pending = sharedQueue.pending;
         if (pending === null) {
-            // This is the first update. Create a circular list.
             update.next = update;
         } else {
             update.next = pending.next;
@@ -56,10 +53,6 @@ export function enqueueUpdate(fiber, update, lane) {
         }
         sharedQueue.pending = update;
 
-        // Update the childLanes even though we're most likely already rendering
-        // this fiber. This is for backwards compatibility in the case where you
-        // update a different component during render phase than the one that is
-        // currently renderings (a pattern that is accompanied by a warning).
         return unsafe_markUpdateLaneFromFiberToRoot(fiber, lane);
     } else {
         return enqueueConcurrentClassUpdate(fiber, sharedQueue, update, lane);

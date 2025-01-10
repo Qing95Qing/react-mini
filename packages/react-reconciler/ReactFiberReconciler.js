@@ -22,6 +22,7 @@ export function updateContainer(element, container, parentComponent, callback) {
     const current = container.current;
     const lane = requestUpdateLane(current);
 
+    // 初始化时，context为空
     // 当标志disableLegacyContext为true时返回的context为emptyContextObject({})
     const context = getContextForSubtree(parentComponent);
 
@@ -39,7 +40,7 @@ export function updateContainer(element, container, parentComponent, callback) {
         update.callback = callback;
     }
 
-    const root = enqueueUpdate(rootFiber, update, lane);
+    const root = enqueueUpdate(current, update, lane);
     if (root !== null) {
         startUpdateTimerByLane(lane);
         scheduleUpdateOnFiber(root, rootFiber, lane);
@@ -47,7 +48,7 @@ export function updateContainer(element, container, parentComponent, callback) {
     }
 }
 
-function getContextForSubtree(React$Component) {
+function getContextForSubtree(parentComponent) {
     if (!parentComponent) {
         return emptyContextObject;
     }
