@@ -9,7 +9,7 @@ export function createRoot(container) {
     // 创建一个FiberRootNode
     const root = createContainer(container, ConcurrentRoot);
     // 将root.current 记录到 给container的【__reactContainer$】
-    markContainerAsRoot(root.current, container);
+    container['__reactContainer$randomKey'] = root.current;
     const rootContainerElement =
         container.nodeType === COMMENT_NODE ? container.parentNode : container;
     // 1）初始化container时，注册listener。

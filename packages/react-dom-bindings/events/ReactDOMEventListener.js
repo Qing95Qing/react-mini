@@ -208,7 +208,9 @@ export function dispatchEvent(
     targetContainer,
     nativeEvent
 ) {
-    // 检查dom节点相关的react组件当前是否有阻塞的事件
+    // 检查dom节点相关的react组件当前是否有阻塞的事件，是否已挂载
+    // 同时获取事件target对应的fiber节点（return_targetInst）
+    // 当元素为suspense组件时，blockedOn非空，为suspense组件的fiber节点
     let blockedOn = findInstanceBlockingEvent(nativeEvent);
     if (blockedOn === null) {
         // 没有阻塞的事件
@@ -216,7 +218,7 @@ export function dispatchEvent(
             domEventName,
             eventSystemFlags,
             nativeEvent,
-            return_targetInst, // 只有被阻塞的事件才有
+            return_targetInst,
             targetContainer
         );
         clearIfContinuousEvent(domEventName, nativeEvent);

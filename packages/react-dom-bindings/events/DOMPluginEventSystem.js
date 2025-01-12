@@ -45,6 +45,7 @@ function extractEvents(
         targetContainer
     );
 
+    // 捕获阶段的事件该值为true
     const shouldProcessPolyfillPlugins =
         (eventSystemFlags & SHOULD_NOT_PROCESS_POLYFILL_EVENT_PLUGINS) === 0;
 
