@@ -29,6 +29,7 @@ import {
 } from '../../scheduler/SchedulerPriorities';
 import { getCurrentPriorityLevel as getCurrentSchedulerPriorityLevel } from '../../scheduler';
 import { dispatchEventForPluginEventSystem } from './DOMPluginEventSystem';
+import { clearIfContinuousEvent } from './ReactDOMEventReplaying';
 
 export function createEventListenerWrapperWithPriority(
     targetContainer,
@@ -224,62 +225,6 @@ export function dispatchEvent(
         clearIfContinuousEvent(domEventName, nativeEvent);
         return;
     }
-
-    if (
-        queueIfContinuousEvent(
-            blockedOn,
-            domEventName,
-            eventSystemFlags,
-            targetContainer,
-            nativeEvent
-        )
-    ) {
-        nativeEvent.stopPropagation();
-        return;
-    }
-    // We need to clear only if we didn't queue because
-    // queueing is accumulative.
-    clearIfContinuousEvent(domEventName, nativeEvent);
-
-    if (
-        eventSystemFlags & IS_CAPTURE_PHASE &&
-        isDiscreteEventThatRequiresHydration(domEventName)
-    ) {
-        while (blockedOn !== null) {
-            const fiber = getInstanceFromNode(blockedOn);
-            if (fiber !== null) {
-                attemptSynchronousHydration(fiber);
-            }
-            const nextBlockedOn = findInstanceBlockingEvent(nativeEvent);
-            if (nextBlockedOn === null) {
-                dispatchEventForPluginEventSystem(
-                    domEventName,
-                    eventSystemFlags,
-                    nativeEvent,
-                    return_targetInst,
-                    targetContainer
-                );
-            }
-            if (nextBlockedOn === blockedOn) {
-                break;
-            }
-            blockedOn = nextBlockedOn;
-        }
-        if (blockedOn !== null) {
-            nativeEvent.stopPropagation();
-        }
-        return;
-    }
-
-    // This is not replayable so we'll invoke it but without a target,
-    // in case the event system needs to trace it.
-    dispatchEventForPluginEventSystem(
-        domEventName,
-        eventSystemFlags,
-        nativeEvent,
-        null,
-        targetContainer
-    );
 }
 
 export function findInstanceBlockingEvent(nativeEvent) {

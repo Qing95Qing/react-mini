@@ -18,7 +18,9 @@ import {
 import getListener from './getListener';
 import reportGlobalError from '../../shared/reportGlobalError';
 
-// 将所有的事件的名称加到allNativeEvents的集合中，两阶段事件的会多加一个capture事件
+// 将【DOM事件 -> react操作名称】对应关系记录到topLevelEventsToReactNames
+// 将【react操作名称 -> DOM事件列表】对应关系记录到registrationNameDependencies
+// 将所有【DOM事件】加到allNativeEvents的集合中，两阶段事件的会多加一个capture事件
 // 如onClick会多再注册一个onClickCapture
 SimpleEventPlugin.registerEvents();
 EnterLeaveEventPlugin.registerEvents();
@@ -50,16 +52,16 @@ function extractEvents(
         (eventSystemFlags & SHOULD_NOT_PROCESS_POLYFILL_EVENT_PLUGINS) === 0;
 
     if (shouldProcessPolyfillPlugins) {
+        ChangeEventPlugin.extractEvents(
+            dispatchQueue,
+            domEventName,
+            targetInst,
+            nativeEvent,
+            nativeEventTarget,
+            eventSystemFlags,
+            targetContainer
+        );
         // EnterLeaveEventPlugin.extractEvents(
-        //     dispatchQueue,
-        //     domEventName,
-        //     targetInst,
-        //     nativeEvent,
-        //     nativeEventTarget,
-        //     eventSystemFlags,
-        //     targetContainer
-        // );
-        // ChangeEventPlugin.extractEvents(
         //     dispatchQueue,
         //     domEventName,
         //     targetInst,
@@ -231,7 +233,7 @@ export function dispatchEventForPluginEventSystem(
     domEventName,
     eventSystemFlags,
     nativeEvent,
-    targetInst, // 只有被阻塞的事件才有
+    targetInst, // DOM节点对应的fiber
     targetContainer
 ) {
     let ancestorInst = targetInst;

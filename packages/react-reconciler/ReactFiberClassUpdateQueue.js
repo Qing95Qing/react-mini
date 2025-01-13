@@ -1,3 +1,7 @@
+import {
+    enqueueConcurrentClassUpdate,
+    unsafe_markUpdateLaneFromFiberToRoot,
+} from './ReactFiberConcurrentUpdates';
 import { isUnsafeClassRenderPhaseUpdate } from './ReactFiberWorkLoop';
 
 export const UpdateState = 0;
@@ -35,7 +39,7 @@ export function createUpdate(lane) {
 export function enqueueUpdate(fiber, update, lane) {
     const updateQueue = fiber.updateQueue;
     if (updateQueue === null) {
-        // Only occurs if the fiber has been unmounted.
+        // 只会发生在fiber未挂载时
         return null;
     }
 
@@ -53,6 +57,8 @@ export function enqueueUpdate(fiber, update, lane) {
         }
         sharedQueue.pending = update;
 
+        // 1）从当前节点向上找root并最后返回
+        // 2）从当前更新fiber向上将子fiber的lane合并到父fiber的childLanes
         return unsafe_markUpdateLaneFromFiberToRoot(fiber, lane);
     } else {
         return enqueueConcurrentClassUpdate(fiber, sharedQueue, update, lane);

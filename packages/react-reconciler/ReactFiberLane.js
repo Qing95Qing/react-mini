@@ -63,9 +63,13 @@ export function claimNextTransitionLane() {
 }
 
 export function createLaneMap(initial) {
-  const laneMap = [];
-  for (let i = 0; i < TotalLanes; i++) {
-    laneMap.push(initial);
-  }
-  return laneMap;
+    const laneMap = [];
+    for (let i = 0; i < TotalLanes; i++) {
+        laneMap.push(initial);
+    }
+    return laneMap;
+}
+
+export function mergeLanes(a, b) {
+    return a | b;
 }
