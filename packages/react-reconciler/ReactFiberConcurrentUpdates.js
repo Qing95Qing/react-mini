@@ -1,4 +1,4 @@
-import { mergeLanes } from './ReactFiberLane';
+import { mergeLanes, NoLane } from './ReactFiberLane';
 import { throwIfInfiniteUpdateLoopDetected } from './ReactFiberWorkLoop';
 
 const concurrentQueues = [];
@@ -69,5 +69,39 @@ function enqueueUpdate(fiber, queue, update, lane) {
     const alternate = fiber.alternate;
     if (alternate !== null) {
         alternate.lanes = mergeLanes(alternate.lanes, lane);
+    }
+}
+
+export function finishQueueingConcurrentUpdates() {
+    const endIndex = concurrentQueuesIndex;
+    concurrentQueuesIndex = 0;
+
+    concurrentlyUpdatedLanes = NoLanes;
+
+    let i = 0;
+    while (i < endIndex) {
+        const fiber = concurrentQueues[i];
+        concurrentQueues[i++] = null;
+        const queue = concurrentQueues[i];
+        concurrentQueues[i++] = null;
+        const update = concurrentQueues[i];
+        concurrentQueues[i++] = null;
+        const lane = concurrentQueues[i];
+        concurrentQueues[i++] = null;
+
+        if (queue !== null && update !== null) {
+            const pending = queue.pending;
+            if (pending === null) {
+                update.next = update;
+            } else {
+                update.next = pending.next;
+                pending.next = update;
+            }
+            queue.pending = update;
+        }
+
+        if (lane !== NoLane) {
+            markUpdateLaneFromFiberToRoot(fiber, update, lane);
+        }
     }
 }

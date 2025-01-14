@@ -1,4 +1,9 @@
-import { pickArbitraryLane, SyncLane } from './ReactFiberLane';
+import {
+    checkIfRootIsPrerendering,
+    getEntangledLanes,
+    pickArbitraryLane,
+    SyncLane,
+} from './ReactFiberLane';
 import { ConcurrentMode, NoMode } from './ReactTypeOfMode';
 import { requestCurrentTransition } from './ReactFiberTransition';
 import { peekEntangledActionLane } from './ReactFiberAsyncAction';
@@ -9,25 +14,72 @@ import {
 import { resolveUpdatePriority } from '../react-dom-bindings/ReactDOMUpdatePriority';
 import { eventPriorityToLane } from './ReactEventPriorities';
 import { disableLegacyMode } from '../shared/ReactFeatureFlags';
+import { noTimeout, cancelTimeout } from './ReactFiberConfig';
+import { resetContextDependencies } from './ReactFiberNewContext';
+import { resetHooksOnUnwind } from './ReactFiberHooks';
+import { resetChildReconcilerOnUnwind } from './ReactChildFiber';
+import { createWorkInProgress } from './ReactFiber';
+import { finishQueueingConcurrentUpdates } from './ReactFiberConcurrentUpdates';
 
 export const NoContext = /*             */ 0b000;
 const BatchedContext = /*               */ 0b001;
 export const RenderContext = /*         */ 0b010;
 export const CommitContext = /*         */ 0b100;
 
+const RootInProgress = 0;
+const RootFatalErrored = 1;
+const RootErrored = 2;
+const RootSuspended = 3;
+const RootSuspendedWithDelay = 4;
+const RootCompleted = 5;
+const RootDidNotComplete = 6;
+
 let executionContext = NoContext;
+// 记录当前的工作root
+let workInProgressRoot = null;
+// 正在工作的fiber节点
+let workInProgress = null;
+// 当前渲染的lanes
+let workInProgressRootRenderLanes = NoLanes;
+
+const NotSuspended = 0;
+const SuspendedOnError = 1;
+const SuspendedOnData = 2;
+const SuspendedOnImmediate = 3;
+const SuspendedOnInstance = 4;
+const SuspendedOnInstanceAndReadyToContinue = 5;
+const SuspendedOnDeprecatedThrowPromise = 6;
+const SuspendedAndReadyToContinue = 7;
+const SuspendedOnHydration = 8;
 
 const NESTED_UPDATE_LIMIT = 50;
 let nestedUpdateCount = 0;
-let rootWithNestedUpdates = null;
-let isFlushingPassiveEffects = false;
-let didScheduleUpdateDuringPassiveEffects = false;
+let workInProgressSuspendedReason = NotSuspended;
+let workInProgressThrownValue = null;
 
-const NESTED_PASSIVE_UPDATE_LIMIT = 50;
-let nestedPassiveUpdateCount = 0;
-let rootWithPassiveNestedUpdates = null;
+let workInProgressRootDidSkipSuspendedSiblings = false;
+let workInProgressRootIsPrerendering = false;
+let workInProgressRootDidAttachPingListener = false;
+export let entangledRenderLanes = NoLanes;
 
-let isRunningInsertionEffect = false;
+let workInProgressRootExitStatus = RootInProgress;
+let workInProgressRootSkippedLanes = NoLanes;
+let workInProgressRootInterleavedUpdatedLanes = NoLanes;
+let workInProgressRootRenderPhaseUpdatedLanes = NoLanes;
+let workInProgressRootPingedLanes = NoLanes;
+let workInProgressDeferredLane = NoLane;
+let workInProgressSuspendedRetryLanes = NoLanes;
+let workInProgressRootConcurrentErrors = null;
+let workInProgressRootRecoverableErrors = null;
+
+let workInProgressRootDidIncludeRecursiveRenderUpdate = false;
+let didIncludeCommitPhaseUpdate = false;
+let globalMostRecentFallbackTime = 0;
+const FALLBACK_THROTTLE_MS = 300;
+let workInProgressRootRenderTargetTime = Infinity;
+const RENDER_TIMEOUT_MS = 500;
+
+let workInProgressTransitions = null;
 export function requestUpdateLane(fiber) {
     // 获取当前fiber节点的lanes
     const { mode } = fiber;
@@ -101,18 +153,14 @@ export function throwIfInfiniteUpdateLoopDetected() {
 }
 
 export function scheduleUpdateOnFiber(root, fiber, lane) {
-    // Check if the work loop is currently suspended and waiting for data to
-    // finish loading.
     // 检查工作循环当前是否suspend或在等待数据加载
     if (
-        // Suspended render phase
+        // 在render或commit阶段suspend
         (root === workInProgressRoot &&
             workInProgressSuspendedReason === SuspendedOnData) ||
-        // Suspended commit phase
         root.cancelPendingCommit !== null
     ) {
-        // The incoming update might unblock the current render. Interrupt the
-        // current attempt and restart from the top.
+        // 重置记录工作状态的全局变量，生成一个新的workInProgress
         prepareFreshStack(root, NoLanes);
         const didAttemptEntireTree = false;
         markRootSuspended(
@@ -212,4 +260,74 @@ export function scheduleUpdateOnFiber(root, fiber, lane) {
             }
         }
     }
+}
+
+function prepareFreshStack(root, lanes) {
+    root.finishedWork = null;
+    root.finishedLanes = NoLanes;
+
+    const timeoutHandle = root.timeoutHandle;
+    if (timeoutHandle !== noTimeout) {
+        root.timeoutHandle = noTimeout;
+        cancelTimeout(timeoutHandle);
+    }
+    const cancelPendingCommit = root.cancelPendingCommit;
+    if (cancelPendingCommit !== null) {
+        root.cancelPendingCommit = null;
+        cancelPendingCommit();
+    }
+
+    resetWorkInProgressStack();
+    workInProgressRoot = root;
+    const rootWorkInProgress = createWorkInProgress(root.current, null);
+    workInProgress = rootWorkInProgress;
+    workInProgressRootRenderLanes = lanes;
+    workInProgressSuspendedReason = NotSuspended;
+    workInProgressThrownValue = null;
+    workInProgressRootDidSkipSuspendedSiblings = false;
+    workInProgressRootIsPrerendering = checkIfRootIsPrerendering(root, lanes);
+    workInProgressRootDidAttachPingListener = false;
+    workInProgressRootExitStatus = RootInProgress;
+    workInProgressRootSkippedLanes = NoLanes;
+    workInProgressRootInterleavedUpdatedLanes = NoLanes;
+    workInProgressRootRenderPhaseUpdatedLanes = NoLanes;
+    workInProgressRootPingedLanes = NoLanes;
+    workInProgressDeferredLane = NoLane;
+    workInProgressSuspendedRetryLanes = NoLanes;
+    workInProgressRootConcurrentErrors = null;
+    workInProgressRootRecoverableErrors = null;
+    workInProgressRootDidIncludeRecursiveRenderUpdate = false;
+    entangledRenderLanes = getEntangledLanes(root, lanes);
+
+    finishQueueingConcurrentUpdates();
+
+    return rootWorkInProgress;
+}
+
+function resetWorkInProgressStack() {
+    if (workInProgress === null) return;
+    let interruptedWork;
+    if (workInProgressSuspendedReason === NotSuspended) {
+        interruptedWork = workInProgress.return;
+    } else {
+        resetSuspendedWorkLoopOnUnwind(workInProgress);
+        interruptedWork = workInProgress;
+    }
+    while (interruptedWork !== null) {
+        const current = interruptedWork.alternate;
+        // TODO:先忽略细节
+        //   unwindInterruptedWork(
+        //     current,
+        //     interruptedWork,
+        //     workInProgressRootRenderLanes,
+        //   );
+        interruptedWork = interruptedWork.return;
+    }
+    workInProgress = null;
+}
+
+function resetSuspendedWorkLoopOnUnwind(fiber) {
+    resetContextDependencies();
+    resetHooksOnUnwind(fiber);
+    resetChildReconcilerOnUnwind();
 }

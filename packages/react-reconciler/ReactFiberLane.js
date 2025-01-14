@@ -73,3 +73,40 @@ export function createLaneMap(initial) {
 export function mergeLanes(a, b) {
     return a | b;
 }
+
+export function checkIfRootIsPrerendering(root, renderLanes) {
+    const pendingLanes = root.pendingLanes;
+    const suspendedLanes = root.suspendedLanes;
+    const pingedLanes = root.pingedLanes;
+    const unblockedLanes = pendingLanes & ~(suspendedLanes & ~pingedLanes);
+
+    return (unblockedLanes & renderLanes) === 0;
+}
+
+export function getEntangledLanes(root, renderLanes) {
+    let entangledLanes = renderLanes;
+
+    if ((entangledLanes & InputContinuousLane) !== NoLanes) {
+        entangledLanes |= entangledLanes & DefaultLane;
+    }
+
+    const allEntangledLanes = root.entangledLanes;
+    if (allEntangledLanes !== NoLanes) {
+        const entanglements = root.entanglements;
+        let lanes = entangledLanes & allEntangledLanes;
+        while (lanes > 0) {
+            const index = pickArbitraryLaneIndex(lanes);
+            const lane = 1 << index;
+
+            entangledLanes |= entanglements[index];
+
+            lanes &= ~lane;
+        }
+    }
+
+    return entangledLanes;
+}
+
+function pickArbitraryLaneIndex(lanes) {
+    return 31 - clz32(lanes);
+}

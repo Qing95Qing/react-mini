@@ -41,7 +41,7 @@ export function updateContainer(element, container, parentComponent, callback) {
     }
 
     // 1）将更新信息加到concurrentQueues中，
-    // 2）将更新lane添加到fiber的lanes
+    // 2）将更新lane合并到fiber的lanes
     // 3）返回当前fiber所在的root
     const root = enqueueUpdate(current, update, lane);
     if (root !== null) {

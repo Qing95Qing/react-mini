@@ -102,3 +102,49 @@ function FiberNode(tag, pendingProps, key, mode) {
 
     this.alternate = null;
 }
+
+export function createWorkInProgress(current, pendingProps) {
+    let workInProgress = current.alternate;
+    if (workInProgress === null) {
+        workInProgress = createFiber(
+            current.tag,
+            pendingProps,
+            current.key,
+            current.mode
+        );
+        workInProgress.elementType = current.elementType;
+        workInProgress.type = current.type;
+        workInProgress.stateNode = current.stateNode;
+
+        workInProgress.alternate = current;
+        current.alternate = workInProgress;
+    } else {
+        workInProgress.pendingProps = pendingProps;
+        workInProgress.type = current.type;
+        workInProgress.flags = NoFlags;
+        workInProgress.subtreeFlags = NoFlags;
+        workInProgress.deletions = null;
+
+        workInProgress.childLanes = current.childLanes;
+        workInProgress.lanes = current.lanes;
+
+        workInProgress.child = current.child;
+        workInProgress.memoizedProps = current.memoizedProps;
+        workInProgress.memoizedState = current.memoizedState;
+        workInProgress.updateQueue = current.updateQueue;
+        const currentDependencies = current.dependencies;
+        workInProgress.dependencies =
+            currentDependencies === null
+                ? null
+                : {
+                      lanes: currentDependencies.lanes,
+                      firstContext: currentDependencies.firstContext,
+                  };
+        workInProgress.sibling = current.sibling;
+        workInProgress.index = current.index;
+        workInProgress.ref = current.ref;
+        workInProgress.refCleanup = current.refCleanup;
+    }
+
+    return workInProgress;
+}
