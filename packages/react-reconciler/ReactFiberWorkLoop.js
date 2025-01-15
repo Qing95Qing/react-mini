@@ -1,7 +1,11 @@
 import {
     checkIfRootIsPrerendering,
     getEntangledLanes,
+    markRootUpdated,
+    mergeLanes,
     pickArbitraryLane,
+    removeLanes,
+    markRootSuspended as _markRootSuspended,
     SyncLane,
 } from './ReactFiberLane';
 import { ConcurrentMode, NoMode } from './ReactTypeOfMode';
@@ -80,6 +84,17 @@ let workInProgressRootRenderTargetTime = Infinity;
 const RENDER_TIMEOUT_MS = 500;
 
 let workInProgressTransitions = null;
+export function getWorkInProgressRoot() {
+    return workInProgressRoot;
+}
+
+export function getWorkInProgressRootRenderLanes() {
+    return workInProgressRootRenderLanes;
+}
+
+export function isWorkLoopSuspendedOnData() {
+    return workInProgressSuspendedReason === SuspendedOnData;
+}
 export function requestUpdateLane(fiber) {
     // 获取当前fiber节点的lanes
     const { mode } = fiber;
@@ -155,14 +170,17 @@ export function throwIfInfiniteUpdateLoopDetected() {
 export function scheduleUpdateOnFiber(root, fiber, lane) {
     // 检查工作循环当前是否suspend或在等待数据加载
     if (
-        // 在render或commit阶段suspend
+        // 在render或commit阶段被阻塞
         (root === workInProgressRoot &&
             workInProgressSuspendedReason === SuspendedOnData) ||
         root.cancelPendingCommit !== null
     ) {
+        // 传入的更新可能会解除当前渲染的阻碍。中断当前尝试并从顶部重新开始。
+
         // 重置记录工作状态的全局变量，生成一个新的workInProgress
         prepareFreshStack(root, NoLanes);
         const didAttemptEntireTree = false;
+        // 更新root的suspendedLanes、pingedLanes
         markRootSuspended(
             root,
             workInProgressRootRenderLanes,
@@ -171,95 +189,34 @@ export function scheduleUpdateOnFiber(root, fiber, lane) {
         );
     }
 
-    // Mark that the root has a pending update.
+    // 将当前更新对应lane添加到root.pendingLanes中
     markRootUpdated(root, lane);
 
-    if (
-        (executionContext & RenderContext) !== NoLanes &&
-        root === workInProgressRoot
-    ) {
-        // This update was dispatched during the render phase. This is a mistake
-        // if the update originates from user space (with the exception of local
-        // hook updates, which are handled differently and don't reach this
-        // function), but there are some internal React features that use this as
-        // an implementation detail, like selective hydration.
-        warnAboutRenderPhaseUpdatesInDEV(fiber);
-
-        // Track lanes that were updated during the render phase
-        workInProgressRootRenderPhaseUpdatedLanes = mergeLanes(
-            workInProgressRootRenderPhaseUpdatedLanes,
-            lane
-        );
-    } else {
-        // This is a normal update, scheduled from outside the render phase. For
-        // example, during an input event.
-        if (enableUpdaterTracking) {
-            if (isDevToolsPresent) {
-                addFiberToLanesMap(root, fiber, lane);
-            }
+    // 当前root指向的fiber树在render或commit阶段有pending的任务
+    if (root === workInProgressRoot) {
+        if ((executionContext & RenderContext) === NoContext) {
+            // 如果当前不处于渲染阶段，全局变量标记当前root有一个交错的更新
+            workInProgressRootInterleavedUpdatedLanes = mergeLanes(
+                workInProgressRootInterleavedUpdatedLanes,
+                lane
+            );
         }
-
-        warnIfUpdatesNotWrappedWithActDEV(fiber);
-
-        if (enableTransitionTracing) {
-            const transition = ReactSharedInternals.T;
-            if (transition !== null && transition.name != null) {
-                if (transition.startTime === -1) {
-                    transition.startTime = now();
-                }
-
-                // $FlowFixMe[prop-missing]: The BatchConfigTransition and Transition types are incompatible but was previously untyped and thus uncaught
-                // $FlowFixMe[incompatible-call]: "
-                addTransitionToLanesMap(root, transition, lane);
-            }
-        }
-
-        if (root === workInProgressRoot) {
-            // Received an update to a tree that's in the middle of rendering. Mark
-            // that there was an interleaved update work on this root.
-            if ((executionContext & RenderContext) === NoContext) {
-                workInProgressRootInterleavedUpdatedLanes = mergeLanes(
-                    workInProgressRootInterleavedUpdatedLanes,
-                    lane
-                );
-            }
-            if (workInProgressRootExitStatus === RootSuspendedWithDelay) {
-                // The root already suspended with a delay, which means this render
-                // definitely won't finish. Since we have a new update, let's mark it as
-                // suspended now, right before marking the incoming update. This has the
-                // effect of interrupting the current render and switching to the update.
-                // TODO: Make sure this doesn't override pings that happen while we've
-                // already started rendering.
-                const didAttemptEntireTree = false;
-                markRootSuspended(
-                    root,
-                    workInProgressRootRenderLanes,
-                    workInProgressDeferredLane,
-                    didAttemptEntireTree
-                );
-            }
-        }
-
-        ensureRootIsScheduled(root);
-        if (
-            lane === SyncLane &&
-            executionContext === NoContext &&
-            !disableLegacyMode &&
-            (fiber.mode & ConcurrentMode) === NoMode
-        ) {
-            if (__DEV__ && ReactSharedInternals.isBatchingLegacy) {
-                // Treat `act` as if it's inside `batchedUpdates`, even in legacy mode.
-            } else {
-                // Flush the synchronous work now, unless we're already working or inside
-                // a batch. This is intentionally inside scheduleUpdateOnFiber instead of
-                // scheduleCallbackForFiber to preserve the ability to schedule a callback
-                // without immediately flushing it. We only do this for user-initiated
-                // updates, to preserve historical behavior of legacy mode.
-                resetRenderTimer();
-                flushSyncWorkOnLegacyRootsOnly();
-            }
+        if (workInProgressRootExitStatus === RootSuspendedWithDelay) {
+            // root已经暂停了一个delay，意味着渲染工作确实没有结束。
+            // 在标记即将镜像的update前，标记root当前处于suspense状态。
+            // 产生的影响是：打断了当前的渲染转而去处理更新
+            const didAttemptEntireTree = false;
+            // 更新root的suspendedLanes、pingedLanes
+            markRootSuspended(
+                root,
+                workInProgressRootRenderLanes,
+                workInProgressDeferredLane,
+                didAttemptEntireTree
+            );
         }
     }
+
+    ensureRootIsScheduled(root);
 }
 
 function prepareFreshStack(root, lanes) {
@@ -330,4 +287,18 @@ function resetSuspendedWorkLoopOnUnwind(fiber) {
     resetContextDependencies();
     resetHooksOnUnwind(fiber);
     resetChildReconcilerOnUnwind();
+}
+
+function markRootSuspended(
+    root,
+    suspendedLanes,
+    spawnedLane,
+    didAttemptEntireTree
+) {
+    suspendedLanes = removeLanes(suspendedLanes, workInProgressRootPingedLanes);
+    suspendedLanes = removeLanes(
+        suspendedLanes,
+        workInProgressRootInterleavedUpdatedLanes
+    );
+    _markRootSuspended(root, suspendedLanes, spawnedLane, didAttemptEntireTree);
 }
