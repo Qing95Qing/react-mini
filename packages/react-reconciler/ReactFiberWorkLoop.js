@@ -193,6 +193,7 @@ export function scheduleUpdateOnFiber(root, fiber, lane) {
     markRootUpdated(root, lane);
 
     // 当前root指向的fiber树在render或commit阶段有pending的任务
+    // 对全局变量标记 or 在root上标记
     if (root === workInProgressRoot) {
         if ((executionContext & RenderContext) === NoContext) {
             // 如果当前不处于渲染阶段，全局变量标记当前root有一个交错的更新
@@ -301,4 +302,8 @@ function markRootSuspended(
         workInProgressRootInterleavedUpdatedLanes
     );
     _markRootSuspended(root, suspendedLanes, spawnedLane, didAttemptEntireTree);
+}
+
+export function getExecutionContext() {
+    return executionContext;
 }

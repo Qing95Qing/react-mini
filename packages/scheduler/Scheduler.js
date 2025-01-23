@@ -33,6 +33,7 @@ export function unstable_cancelCallback(task) {
 function unstable_scheduleCallback(priorityLevel, callback, options) {
     var currentTime = getCurrentTime();
 
+    // 获取开始时间
     var startTime;
     if (typeof options === 'object' && options !== null) {
         var delay = options.delay;
@@ -68,8 +69,10 @@ function unstable_scheduleCallback(priorityLevel, callback, options) {
             break;
     }
 
+    // 根据事件优先级获取过期时间
     var expirationTime = startTime + timeout;
 
+    //
     var newTask = {
         id: taskIdCounter++,
         callback,
@@ -80,7 +83,7 @@ function unstable_scheduleCallback(priorityLevel, callback, options) {
     };
 
     if (startTime > currentTime) {
-        // This is a delayed task.
+        // 延时任务：开始时间晚于当前时间.
         newTask.sortIndex = startTime;
         push(timerQueue, newTask);
         if (peek(taskQueue) === null && newTask === peek(timerQueue)) {

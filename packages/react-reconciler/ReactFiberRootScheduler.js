@@ -5,9 +5,12 @@ import {
     NoLane,
 } from './ReactFiberLane';
 import {
+    CommitContext,
+    getExecutionContext,
     getWorkInProgressRoot,
     getWorkInProgressRootRenderLanes,
     isWorkLoopSuspendedOnData,
+    RenderContext,
 } from './ReactFiberWorkLoop';
 
 import { unstable_cancelCallback as Scheduler_cancelCallback } from '../scheduler/Scheduler';
@@ -17,6 +20,10 @@ import {
     NormalPriority as NormalSchedulerPriority,
     IdlePriority as IdleSchedulerPriority,
 } from '../scheduler/SchedulerPriorities';
+import {
+    scheduleMicrotask,
+    supportsMicrotasks,
+} from '../react-dom-bindings/ReactFiberConfigDOM';
 
 let currentEventTransitionLane = NoLane;
 
@@ -72,7 +79,7 @@ export function ensureRootIsScheduled(root) {
     // 1) 保证root在root schedule中，2) 保证有pending microtask来处理root schedule
     // 大多数实际的schedule逻辑只有当scheduleTaskForRootDuringMicrotask执行时才会执行
 
-    // 将root添加到schedule中
+    // 将root添加到schedule的root环状链表中
     if (root === lastScheduledRoot || root.next !== null) {
         // root已经调度了，则跳过.
     } else {
@@ -94,23 +101,28 @@ export function ensureRootIsScheduled(root) {
         didScheduleMicrotask = true;
         scheduleImmediateTask(processRootScheduleInMicrotask);
     }
+}
 
-    if (!enableDeferRootSchedulingToMicrotask) {
-        // While this flag is disabled, we schedule the render task immediately
-        // instead of waiting a microtask.
-        // TODO: We need to land enableDeferRootSchedulingToMicrotask ASAP to
-        // unblock additional features we have planned.
-        scheduleTaskForRootDuringMicrotask(root, now());
-    }
-
-    if (
-        __DEV__ &&
-        !disableLegacyMode &&
-        ReactSharedInternals.isBatchingLegacy &&
-        root.tag === LegacyRoot
-    ) {
-        // Special `act` case: Record whenever a legacy update is scheduled.
-        ReactSharedInternals.didScheduleLegacyUpdate = true;
+function scheduleImmediateTask(cb) {
+    if (supportsMicrotasks) {
+        // 根据兼容性降级选择：window.queueMicrotask、Promise、setTimeout
+        scheduleMicrotask(() => {
+            const executionContext = getExecutionContext();
+            if (
+                (executionContext & (RenderContext | CommitContext)) !==
+                NoContext
+            ) {
+                // 不在 【渲染】or【提交】阶段
+                // 如果这发生在渲染和提交之外，仍然会过早刷新回调
+                // 使用宏任务代替微任务。直觉上可能不对，但这组织了无限循环（safari的bug）
+                Scheduler_scheduleCallback(ImmediateSchedulerPriority, cb);
+                return;
+            }
+            cb();
+        });
+    } else {
+        // If microtasks are not supported, use Scheduler.
+        Scheduler_scheduleCallback(ImmediateSchedulerPriority, cb);
     }
 }
 
